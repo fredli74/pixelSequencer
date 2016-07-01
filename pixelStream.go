@@ -40,8 +40,13 @@ func imageQuant(src *image.NRGBA) (out *image.Paletted) {
 	}
 	defer C.liq_attr_destroy(quantAttributes)
 
+	// Set max colors
+	if err := C.liq_set_max_colors(quantAttributes, 255); err != C.LIQ_OK {
+		panic(fmt.Sprintf("Unable to set max colors, imagequant library returned %v", err))
+	}
+
 	// Set quantize speed to maximum quality
-	if err := C.liq_set_speed(quantAttributes, 1); err != C.LIQ_OK {
+	if err := C.liq_set_speed(quantAttributes, 10); err != C.LIQ_OK {
 		panic(fmt.Sprintf("Unable to set quantize speed, imagequant library returned %v", err))
 	}
 
@@ -170,8 +175,26 @@ func main() {
 		frameStripImage := quantize(inputImage)
 		fmt.Println("Encoding pixel stream from vertical frame strip")
 
+		streamImage := image.NewPaletted(image.Rect(0, 0, frameW*frameC, frameH), frameStripImage.Palette)
+
+		for y := 0; y < frameH; y++ {
+			for x := 0; x < frameW; x++ {
+				var first = uint8(255)
+				for f := 0; f < frameC; f++ {
+					c := frameStripImage.ColorIndexAt(x, f*frameH+y)
+					if c == first {
+						c = 255
+					} else if first == 255 {
+						first = c
+					}
+					streamImage.SetColorIndex(x+f*frameW, y, c)
+
+				}
+			}
+		}
+
 		// Re-arrange all frame pixels in a sequence
-		streamImage := image.NewPaletted(image.Rect(0, 0, frameC*frameW, frameH), frameStripImage.Palette)
+		/*streamImage := image.NewPaletted(image.Rect(0, 0, frameC*frameW, frameH), frameStripImage.Palette)
 		{
 			x := 0
 			f := 0
@@ -183,7 +206,7 @@ func main() {
 					x %= frameC * frameW * frameH
 				}
 			}
-		}
+		}*/
 		outputImage = streamImage
 
 	case "decode":
