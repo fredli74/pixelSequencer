@@ -9,14 +9,12 @@ import "C"
 import "unsafe"
 
 import (
-	"bytes"
 	"fmt"
 	"image"
 	"image/color"
 	"image/color/palette"
 	"image/draw"
 	"image/png"
-	"io"
 	"math"
 	"os"
 	"reflect"
@@ -29,11 +27,11 @@ func panicOn(err error) {
 	}
 }
 
-func imageQuant(src *image.NRGBA, animation bool) (out *image.Paletted) {
+func imageQuant(src *image.NRGBA) (out *image.Paletted) {
 	fmt.Printf("Quantizing image ... ")
 	bounds := src.Bounds()
-	w := bounds.Max.X - bounds.Min.X
-	h := bounds.Max.Y - bounds.Min.Y
+	w := bounds.Max.X
+	h := bounds.Max.Y
 
 	// Setup imagequant attributes
 	quantAttributes := C.liq_attr_create()
@@ -41,13 +39,6 @@ func imageQuant(src *image.NRGBA, animation bool) (out *image.Paletted) {
 		panic("Unable to initialize quantize attributes, imagequant library returned null")
 	}
 	defer C.liq_attr_destroy(quantAttributes)
-
-	if animation {
-		// Reserve one color for diff
-		if err := C.liq_set_max_colors(quantAttributes, 255); err != C.LIQ_OK {
-			panic(fmt.Sprintf("Unable to set quantize color count, imagequant library returned %v", err))
-		}
-	}
 
 	// Set quantize speed to maximum quality
 	if err := C.liq_set_speed(quantAttributes, 1); err != C.LIQ_OK {
@@ -90,23 +81,23 @@ func imageQuant(src *image.NRGBA, animation bool) (out *image.Paletted) {
 	return
 }
 
-func quantize(in image.Image, animation bool) (out *image.Paletted) {
+func quantize(in image.Image) (out *image.Paletted) {
 	bounds := in.Bounds()
 	switch t := in.(type) {
-	//	case *image.Paletted:
-	//		return t
+	case *image.Paletted:
+		return t
 	case *image.NRGBA:
-		return imageQuant(t, animation)
+		return imageQuant(t)
 	default:
 		// Convert to NRGBA from whatever it is
 		nrgba := image.NewNRGBA(image.Rect(0, 0, bounds.Max.X, bounds.Max.Y))
 		draw.Draw(nrgba, nrgba.Bounds(), in, image.Pt(0, 0), draw.Src)
-		return imageQuant(nrgba, animation)
+		return imageQuant(nrgba)
 	}
 }
 
 func help() {
-	fmt.Println("pixelStream v0.1 - (c)2016 by Fredrik Lidström")
+	fmt.Println("pixelStream v0.2 - (c)2016 by Fredrik Lidström")
 	fmt.Println("")
 	fmt.Println("pixelStream quantize <input.png> <output.png>")
 	fmt.Println("   Quantize single image (png -> 8-bit)")
@@ -117,7 +108,7 @@ func help() {
 	fmt.Println("pixelStream encode <input.png> <frame-count> <output.png>")
 	fmt.Println("   Encode animation (vertical strip png -> 8-bit pixel stream):")
 	fmt.Println("")
-	fmt.Println("pixelStream decode <input.png> <frame-width> <frame-height> <output.png>")
+	fmt.Println("pixelStream decode <input.png> <frame-count> <output.png>")
 	fmt.Println("   Decode animation image (8-bit pixel stream -> vertical strip NRGBA png")
 	fmt.Println("")
 	os.Exit(-1)
@@ -130,12 +121,8 @@ func main() {
 		if len(os.Args) < 3 {
 			help()
 		}
-	case "encode":
+	case "encode", "decode":
 		if len(os.Args) < 5 {
-			help()
-		}
-	case "decode":
-		if len(os.Args) < 6 {
 			help()
 		}
 	default:
@@ -160,7 +147,7 @@ func main() {
 
 	switch command {
 	case "quantize":
-		outputImage = quantize(inputImage, false)
+		outputImage = quantize(inputImage)
 	case "unquantize":
 		nrgba := image.NewNRGBA(image.Rect(0, 0, inputW, inputH))
 		draw.Draw(nrgba, nrgba.Bounds(), inputImage, image.Pt(0, 0), draw.Src)
@@ -176,72 +163,33 @@ func main() {
 		frameH := inputH / frameC
 		fmt.Printf("Number of frames: %d (%dx%d)\n", frameC, frameW, frameH)
 
+		frameStripImage := quantize(inputImage)
 		fmt.Println("Encoding pixel stream from vertical frame strip")
-		strip := quantize(inputImage, false)
-		//			strip := inputImage.(*image.NRGBA)
 
 		// Re-arrange all frame pixels in a sequence
-		streamImage := image.NewPaletted(image.Rect(0, 0, frameC, frameW*frameH), strip.Palette)
-		//			streamImage := image.NewNRGBA(image.Rect(0, 0, frameC, frameW*frameH))
+		streamImage := image.NewPaletted(image.Rect(0, 0, frameC*frameW, frameH), frameStripImage.Palette)
 		{
-			i := 0
-			for y := 0; y < frameH; y++ {
-				for x := 0; x < frameW; x++ {
-					for f := 0; f < frameC; f++ {
-						streamImage.Pix[i] = strip.Pix[f*frameH*frameW+y*frameW+x]
-						//					streamImage.SetNRGBA(f, y*frameH+x, strip.NRGBAAt(x, f*frameH+y))
-						i++
-					}
+			x := 0
+			f := 0
+			for _, c := range frameStripImage.Pix {
+				streamImage.Pix[f+x] = c
+				x += frameC
+				if x >= frameC*frameW*frameH {
+					f++
+					x %= frameC * frameW * frameH
 				}
 			}
 		}
 		outputImage = streamImage
 
-		bestSize := int(^uint(0) >> 1)
-
-		{
-			fullSize := frameC * frameW * frameH
-			testBuf := new(bytes.Buffer)
-
-			for w := frameC * frameW; w <= frameC*frameW*frameH; w += frameC * frameW {
-				if w > 300000 {
-					w = 300000
-				}
-				h := int(math.Ceil(float64(fullSize) / float64(w)))
-				wasted := w*h - fullSize
-				/*if wasted == 0*/ {
-					testImage := image.NewPaletted(image.Rect(0, 0, w, h), strip.Palette)
-					//			testImage := image.NewNRGBA(image.Rect(0, 0, w, h))
-
-					fmt.Printf("Output %d x %d  (%d wasted) ...  ", w, h, wasted)
-					copy(testImage.Pix, streamImage.Pix)
-
-					testBuf.Reset()
-					err := png.Encode(testBuf, testImage)
-					panicOn(err)
-					fmt.Printf("%d bytes               \r", testBuf.Len())
-					if testBuf.Len() < bestSize {
-						fmt.Printf("\n")
-						bestSize = testBuf.Len()
-
-						out, err := os.Create(fmt.Sprintf("%d-%s", w, os.Args[len(os.Args)-1]))
-						panicOn(err)
-						io.Copy(out, testBuf)
-						out.Close()
-					}
-				}
-				if w >= 300000 {
-					break
-				}
-			}
-		}
-
 	case "decode":
-		frameW, err := strconv.Atoi(os.Args[3])
+		frameC, err := strconv.Atoi(os.Args[3])
 		panicOn(err)
-		frameH, err := strconv.Atoi(os.Args[4])
-		panicOn(err)
-		frameC := (inputW * inputH) / (frameW * frameH)
+		frameW := (inputW / frameC)
+		if frameW*frameC != inputW {
+			panic(fmt.Sprintf("Image width %d is not even divisable by frame count %d", inputW, frameC))
+		}
+		frameH := inputH
 
 		fmt.Printf("Number of frames: %d (%dx%d)\n", frameC, frameW, frameH)
 
