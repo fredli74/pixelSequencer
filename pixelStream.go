@@ -115,6 +115,10 @@ func help() {
 }
 
 func main() {
+	if len(os.Args) < 2 {
+		help()
+	}
+
 	command := os.Args[1]
 	switch command {
 	case "quantize", "unquantize":
