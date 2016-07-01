@@ -1,0 +1,4 @@
+[submodule "pngquant"]
+	path = pngquant
+	url = https://github.com/pornel/pngquant.git
+	branch = master
