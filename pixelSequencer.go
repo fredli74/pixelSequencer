@@ -97,19 +97,19 @@ func quantize(in image.Image) (out *image.Paletted) {
 }
 
 func help() {
-	fmt.Println("pixelStream v0.2 - (c)2016 by Fredrik Lidström")
+	fmt.Println("pixelSequencer v0.2 - (c)2016 by Fredrik Lidström")
 	fmt.Println("")
-	fmt.Println("pixelStream quantize <input.png> <output.png>")
+	fmt.Println("pixelSequencer quantize <input.png> <output.png>")
 	fmt.Println("   Quantize single image (png -> 8-bit)")
 	fmt.Println("")
-	fmt.Println("pixelStream unquantize <input.png> <output.png>")
+	fmt.Println("pixelSequencer unquantize <input.png> <output.png>")
 	fmt.Println("   Unquantize single image (8-bit -> NRGBA png)")
 	fmt.Println("")
-	fmt.Println("pixelStream encode <input.png> <frame-count> <output.png>")
-	fmt.Println("   Encode animation (vertical strip png -> 8-bit pixel stream):")
+	fmt.Println("pixelSequencer encode <input.png> <frame-count> <output.png>")
+	fmt.Println("   Encode animation (vertical strip png -> 8-bit pixel sequence):")
 	fmt.Println("")
-	fmt.Println("pixelStream decode <input.png> <frame-count> <output.png>")
-	fmt.Println("   Decode animation image (8-bit pixel stream -> vertical strip NRGBA png")
+	fmt.Println("pixelSequencer decode <input.png> <frame-count> <output.png>")
+	fmt.Println("   Decode animation image (8-bit pixel sequence -> vertical strip NRGBA png")
 	fmt.Println("")
 	os.Exit(-1)
 }
@@ -168,15 +168,15 @@ func main() {
 		fmt.Printf("Number of frames: %d (%dx%d)\n", frameC, frameW, frameH)
 
 		frameStripImage := quantize(inputImage)
-		fmt.Println("Encoding pixel stream from vertical frame strip")
+		fmt.Println("Encoding pixel sequence from vertical frame strip")
 
 		// Re-arrange all frame pixels in a sequence
-		streamImage := image.NewPaletted(image.Rect(0, 0, frameC*frameW, frameH), frameStripImage.Palette)
+		sequenceImage := image.NewPaletted(image.Rect(0, 0, frameC*frameW, frameH), frameStripImage.Palette)
 		{
 			x := 0
 			f := 0
 			for _, c := range frameStripImage.Pix {
-				streamImage.Pix[f+x] = c
+				sequenceImage.Pix[f+x] = c
 				x += frameC
 				if x >= frameC*frameW*frameH {
 					f++
@@ -184,7 +184,7 @@ func main() {
 				}
 			}
 		}
-		outputImage = streamImage
+		outputImage = sequenceImage
 
 	case "decode":
 		frameC, err := strconv.Atoi(os.Args[3])
@@ -200,12 +200,12 @@ func main() {
 		fmt.Println("Decoding pixel stream to vertical frame strip")
 		strip := image.NewNRGBA(image.Rect(0, 0, frameW, frameH*frameC))
 		{
-			streamImage := inputImage.(*image.Paletted)
+			sequenceImage := inputImage.(*image.Paletted)
 			i := 0
 			for y := 0; y < frameH; y++ {
 				for x := 0; x < frameW; x++ {
 					for f := 0; f < frameC; f++ {
-						c := streamImage.Palette[streamImage.Pix[i]]
+						c := sequenceImage.Palette[sequenceImage.Pix[i]]
 						i++
 						strip.Set(x, y+f*frameH, c)
 					}
