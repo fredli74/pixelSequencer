@@ -106,10 +106,10 @@ func help() {
 	fmt.Println("   Unquantize single image (8-bit -> NRGBA png)")
 	fmt.Println("")
 	fmt.Println("pixelSequencer encode <input.png> <frame-count> <output.png>")
-	fmt.Println("   Encode animation (vertical strip png -> 8-bit pixel sequence):")
+	fmt.Println("   Encode animation (vertical frame strip png -> 8-bit pixel strip):")
 	fmt.Println("")
 	fmt.Println("pixelSequencer decode <input.png> <frame-count> <output.png>")
-	fmt.Println("   Decode animation image (8-bit pixel sequence -> vertical strip NRGBA png")
+	fmt.Println("   Decode animation image (8-bit pixel strip -> vertical frame strip NRGBA png")
 	fmt.Println("")
 	os.Exit(-1)
 }
@@ -168,7 +168,7 @@ func main() {
 		fmt.Printf("Number of frames: %d (%dx%d)\n", frameC, frameW, frameH)
 
 		frameStripImage := quantize(inputImage)
-		fmt.Println("Encoding pixel sequence from vertical frame strip")
+		fmt.Println("Encoding horizontal pixel strip from vertical frame strip")
 
 		// Re-arrange all frame pixels in a sequence
 		sequenceImage := image.NewPaletted(image.Rect(0, 0, frameC*frameW, frameH), frameStripImage.Palette)
@@ -197,7 +197,7 @@ func main() {
 
 		fmt.Printf("Number of frames: %d (%dx%d)\n", frameC, frameW, frameH)
 
-		fmt.Println("Decoding pixel stream to vertical frame strip")
+		fmt.Println("Decoding horizontal pixel strip to vertical frame strip")
 		strip := image.NewNRGBA(image.Rect(0, 0, frameW, frameH*frameC))
 		{
 			sequenceImage := inputImage.(*image.Paletted)
