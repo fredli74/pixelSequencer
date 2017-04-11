@@ -91,13 +91,13 @@ func quantize(in image.Image) (out *image.Paletted) {
 	default:
 		// Convert to NRGBA from whatever it is
 		nrgba := image.NewNRGBA(image.Rect(0, 0, bounds.Max.X, bounds.Max.Y))
-		draw.Draw(nrgba, nrgba.Bounds(), in, image.Pt(0, 0), draw.Src)
+		draw.FloydSteinberg.Draw(nrgba, nrgba.Bounds(), in, image.Pt(0, 0))
 		return imageQuant(nrgba)
 	}
 }
 
 func help() {
-	fmt.Println("pixelSequencer v0.2 - (c)2016 by Fredrik Lidström")
+	fmt.Println("pixelSequencer v0.3 - (c)2016-2017 by Fredrik Lidström")
 	fmt.Println("")
 	fmt.Println("pixelSequencer quantize <input.png> <output.png>")
 	fmt.Println("   Quantize single image (png -> 8-bit)")
