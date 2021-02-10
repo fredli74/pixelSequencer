@@ -3,11 +3,14 @@ package main
 import "C"
 
 import (
+	"encoding/binary"
 	"fmt"
+	"hash/crc32"
 	"image"
 	"image/color"
 	"image/draw"
 	"image/png"
+	"io"
 	"math"
 	"os"
 	"reflect"
@@ -108,7 +111,7 @@ func quantize(in image.Image) (out *image.Paletted) {
 }
 
 func help() {
-	fmt.Println("pixelSequencer v0.3 - (c)2016-2017 by Fredrik Lidström")
+	fmt.Println("pixelSequencer v0.4 - (c)2016-2021 by Fredrik Lidström")
 	fmt.Println("")
 	fmt.Println("pixelSequencer diffuse <input.png> <output.png>")
 	fmt.Println("   Floyd-Steinberg error diffuse image (NRGBA64 png -> NRGBA png)")
@@ -126,6 +129,32 @@ func help() {
 	fmt.Println("   Decode animation image (Paletted 8-bit pixel strip -> vertical frame strip NRGBA png")
 	fmt.Println("")
 	os.Exit(-1)
+}
+
+// Blatantly stolen from the image/png package
+func writeChunk(w io.Writer, b []byte, name string) {
+	var header [8]byte
+	var footer [4]byte
+
+	n := uint32(len(b))
+	binary.BigEndian.PutUint32(header[:4], n)
+	header[4] = name[0]
+	header[5] = name[1]
+	header[6] = name[2]
+	header[7] = name[3]
+	crc := crc32.NewIEEE()
+	crc.Write(header[4:8])
+	crc.Write(b)
+	binary.BigEndian.PutUint32(footer[:4], crc.Sum32())
+
+	_, err := w.Write(header[:8])
+	panicOn(err)
+
+	_, err = w.Write(b)
+	panicOn(err)
+
+	_, err = w.Write(footer[:4])
+	panicOn(err)
 }
 
 func main() {
@@ -243,5 +272,27 @@ func main() {
 	fmt.Printf("Output image (%s): %dx%d\n", reflect.TypeOf(outputImage), outputImage.Bounds().Max.X, outputImage.Bounds().Max.Y)
 	out, err := os.Create(os.Args[len(os.Args)-1])
 	panicOn(err)
-	png.Encode(out, outputImage)
+	err = png.Encode(out, outputImage)
+	panicOn(err)
+
+	if command == "encode" {
+		// Write the pixelstrip chunk to the end of the png file
+
+		// rewind the last IEND chunk (4-byte length, "IEND", 4-byte CRC)
+		out.Seek(-12, os.SEEK_END)
+
+		frameC, err := strconv.Atoi(os.Args[3])
+		panicOn(err) // this should never happen because it would crash earlier
+
+		// Construct the chunkData
+		chunkData := []byte(fmt.Sprintf("PixelStrip.Frames\x00%d", frameC))
+
+		// Write it
+		writeChunk(out, chunkData, "tEXt")
+
+		// Write a new IEND
+		writeChunk(out, nil, "IEND")
+	}
+
+	out.Close()
 }
