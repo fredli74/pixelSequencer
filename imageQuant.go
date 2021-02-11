@@ -52,6 +52,11 @@ func imageQuant(src *image.NRGBA) (out *image.Paletted) {
 	// Create output image with a temporary default palette
 	out = image.NewPaletted(image.Rect(0, 0, w, h), palette.Plan9)
 
+	// Enable dither
+	if err := C.liq_set_dithering_level(quantResult, 1); err != C.LIQ_OK {
+		panic(fmt.Sprintf("Unable to set dithering level, imagequant library returned %v", err))
+	}
+
 	// Quantize the image data
 	if quantErr := C.liq_write_remapped_image(quantResult, quantImage, unsafe.Pointer(&out.Pix[0] /*data[0]*/), C.size_t(w*h)); quantErr != C.LIQ_OK {
 		panic(fmt.Sprintf("Unable to quantize image data, imagequant library returned %v", quantErr))
