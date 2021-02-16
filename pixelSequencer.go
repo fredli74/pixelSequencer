@@ -111,7 +111,7 @@ func quantize(in image.Image) (out *image.Paletted) {
 }
 
 func help() {
-	fmt.Println("pixelSequencer v0.4 - (c)2016-2021 by Fredrik Lidström")
+	fmt.Println("pixelSequencer v0.5 - (c)2016-2021 by Fredrik Lidström")
 	fmt.Println("")
 	fmt.Println("pixelSequencer diffuse <input.png> <output.png>")
 	fmt.Println("   Floyd-Steinberg error diffuse image (NRGBA64 png -> NRGBA png)")
@@ -251,14 +251,13 @@ func main() {
 		fmt.Println("Decoding horizontal pixel strip to vertical frame strip")
 		strip := image.NewNRGBA(image.Rect(0, 0, frameW, frameH*frameC))
 		{
-			sequenceImage := inputImage.(*image.Paletted)
-			i := 0
-			for y := 0; y < frameH; y++ {
-				for x := 0; x < frameW; x++ {
-					for f := 0; f < frameC; f++ {
-						c := sequenceImage.Palette[sequenceImage.Pix[i]]
-						i++
-						strip.Set(x, y+f*frameH, c)
+			sequenceImage := image.NewNRGBA(image.Rect(0, 0, inputW, inputH))
+			draw.Draw(sequenceImage, sequenceImage.Bounds(), inputImage, image.Pt(0, 0), draw.Src)
+
+			for f := 0; f < frameC; f++ {
+				for y := 0; y < frameH; y++ {
+					for x := 0; x < frameW; x++ {
+						strip.Set(x, f*frameH+y, sequenceImage.At(x*frameC+f, y))
 					}
 				}
 			}
