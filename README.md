@@ -1,7 +1,7 @@
 # pixelSequencer
 Command line utility for encoding and decoding pixel strips.
 ```
-pixelSequencer v0.5 - (c)2016-2021 by Fredrik Lidström
+pixelSequencer v0.6 - (c) 2016-2022 by Fredrik Lidström
 
 pixelSequencer diffuse <input.png> <output.png>
    Floyd-Steinberg error diffuse image (NRGBA64 png -> NRGBA png)

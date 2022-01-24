@@ -36,7 +36,7 @@ func imageQuant(src *image.NRGBA) (out *image.Paletted) {
 	}
 
 	// Prepare source image in memory
-	quantImage := C.liq_image_create_rgba(quantAttributes, unsafe.Pointer(&src.Pix[0]), C.int(bounds.Max.X), C.int(bounds.Max.Y), 0)
+	quantImage := C.liq_image_create_rgba(quantAttributes, unsafe.Pointer(&src.Pix[0]), C.int(w), C.int(h), 0)
 	if quantImage == nil {
 		panic("Unable to create quantized image, imagequant library returned null")
 	}
@@ -71,7 +71,11 @@ func imageQuant(src *image.NRGBA) (out *image.Paletted) {
 
 	// Set the output palette
 	for x, c := range quantPalette.entries {
-		out.Palette[x] = color.NRGBA{uint8(c.r), uint8(c.g), uint8(c.b), uint8(c.a)}
+		if c.a > 0 {
+			out.Palette[x] = color.NRGBA{uint8(c.r), uint8(c.g), uint8(c.b), uint8(c.a)}
+		} else {
+			out.Palette[x] = color.NRGBA{0, 0, 0, 0}
+		}
 	}
 	return
 }

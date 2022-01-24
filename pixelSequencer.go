@@ -111,7 +111,7 @@ func quantize(in image.Image) (out *image.Paletted) {
 }
 
 func help() {
-	fmt.Println("pixelSequencer v0.5 - (c)2016-2021 by Fredrik Lidström")
+	fmt.Println("pixelSequencer v0.6 - (c) 2016-2022 by Fredrik Lidström")
 	fmt.Println("")
 	fmt.Println("pixelSequencer diffuse <input.png> <output.png>")
 	fmt.Println("   Floyd-Steinberg error diffuse image (NRGBA64 png -> NRGBA png)")
